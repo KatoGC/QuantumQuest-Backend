@@ -10,8 +10,8 @@ const assessmentRoutes = require("./routes/assessment.routes");
 const reviewRoutes = require("./routes/review.routes");
 const notificationRoutes = require("./routes/notification.routes");
 const categoryRoutes = require("./routes/category.routes");
-const userRoutes = require("./routes/user.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
+const userRoutes = require("./routes/user.routes");
 
 const app = express();
 
@@ -21,6 +21,26 @@ app.use(morgan("dev"));
 // Middleware para parsear JSON
 app.use(express.json());
 
+// Configuración de CORS
+const allowedOrigins = [
+    "http://localhost:3000", // Para desarrollo local
+    "http://localhost:5173", // Para desarrollo con Vite
+    "https://quantum-quest-front-end.vercel.app", // Dominio principal de producción
+    "https://quantum-quest-front-end-git-develop-katogcs-projects.vercel.app", // Subdominio para pruebas
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Permitir solicitudes de orígenes permitidos
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("CORS bloqueado: origen no permitido"));
+        }
+    },
+    credentials: true, // Permitir cookies y encabezados de autorización
+}));
+
 // Middleware personalizado para logging del body
 app.use((req, res, next) => {
     if (req.body) {
@@ -28,9 +48,6 @@ app.use((req, res, next) => {
     }
     next();
 });
-
-// Configuración de CORS
-app.use(cors());
 
 // Rutas
 app.use("/api/auth", authRoutes);
@@ -51,7 +68,10 @@ app.get("/test", (req, res) => {
 
 // Manejador de errores global
 app.use((err, req, res, next) => {
-    console.error("Error:", err);
+    console.error("Error:", err.message);
+    if (err.message === "CORS bloqueado: origen no permitido") {
+        return res.status(403).json({ message: err.message });
+    }
     res.status(500).json({
         success: false,
         message: "Error interno del servidor",
