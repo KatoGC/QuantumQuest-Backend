@@ -60,7 +60,7 @@ const getLesson = async (req, res) => {
 const createLesson = async (req, res) => {
     try {
         const course = await db.Course.findByPk(req.params.courseId);
-        console.log("Parámetros de ruta:", req.params);
+        console.log("Parámetros de ruta:", req.params); // Imprime los parámetros de la ruta
         console.log("Datos recibidos:", req.body);
 
         if (!course) {
