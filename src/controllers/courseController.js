@@ -229,44 +229,39 @@ const enrollCourse = async (req, res) => {
         const courseId = req.params.id;
         const userId = req.user.id;
 
+        const course = await db.Course.findByPk(courseId);
+
         if (!course) {
             return res.status(404).json({
                 success: false,
-                message: "Curso no encontrado",
+                message: "Curso no encontrado"
             });
         }
 
-        // Verificar si ya está inscrito
-        const existingEnrollment = await db.Progress.findOne({
-            where: { userId, courseId, lessonId: null }
+        const [progress, created] = await db.Progress.findOrCreate({
+            where: {
+                userId,
+                courseId,
+                lessonId: null,
+                isCourseLevelProgress: true
+            },
+            defaults: {
+                progressPercentage: 0,
+                timeSpent: 0
+            }
         });
 
-        if (existingEnrollment) {
+        if (!created) {
             return res.status(400).json({
                 success: false,
                 message: "Ya estás inscrito en este curso"
             });
         }
 
-        // Crear inscripción
-        await db.Progress.create({
-            userId,
-            courseId,
-            lessonId: null,
-            progressPercentage: 0
+        res.json({
+            success: true,
+            message: "Inscripción exitosa"
         });
-
-        // Notificacion de nuevo estudiante inscrito
-        await createNotification({
-            userId: course.creatorId,
-            title: "Nuevo estudiante inscrito",
-            message: `Un nuevo estudiante se ha inscrito en tu curso "${course.title}"`,
-            type: "enrollment",
-            relatedId: course.id,
-            relatedType: "Course",
-        });
-
-        res.json({ success: true });
     } catch (error) {
         res.status(500).json({
             success: false,
