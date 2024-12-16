@@ -25,6 +25,10 @@ module.exports = (sequelize) => {
                 type: DataTypes.ENUM("student", "teacher", "admin"),
                 defaultValue: "student",
             },
+            bio: {
+                type: DataTypes.TEXT,
+                allowNull: true,
+            },
             verificationToken: {
                 type: DataTypes.STRING,
                 allowNull: true,
