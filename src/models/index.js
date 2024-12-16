@@ -20,6 +20,7 @@ const AssessmentResultModel = require("./AssessmentResult");
 const ReviewModel = require("./Review");
 const NotificationModel = require("./Notification");
 const CategoryModel = require("./Category");
+const CommentModel = require("./Comment");
 
 // Inicializar modelos
 const User = UserModel(sequelize);
@@ -31,6 +32,7 @@ const AssessmentResult = AssessmentResultModel(sequelize);
 const Review = ReviewModel(sequelize);
 const Notification = NotificationModel(sequelize);
 const Category = CategoryModel(sequelize);
+const Comment = CommentModel(sequelize);
 
 // Definir relaciones
 // Users - Courses (creador)
@@ -155,7 +157,23 @@ Category.hasMany(Course, {
     onDelete: "SET NULL",
 });
 
+Comment.belongsTo(User, {
+    foreignKey: "userId",
+    allowNull: false
+});
+
+Comment.belongsTo(Course, {
+    foreignKey: "courseId",
+    allowNull: false
+});
+
+Course.hasMany(Comment, {
+    foreignKey: "courseId",
+    onDelete: "CASCADE"
+});
+
 Course.belongsTo(Category, { foreignKey: "categoryId" });
+
 
 // Sincronizar modelos con la base de datos
 const syncDatabase = async () => {
@@ -180,6 +198,7 @@ const db = {
     Notification,
     Category,
     syncDatabase,
+    Comment,
 };
 
 module.exports = db;
