@@ -51,14 +51,12 @@ const getStudentStats = async (req, res) => {
         const enrolledCourses = await db.Progress.findAll({
             where: {
                 userId: req.user.id,
-                lessonId: null, // Solo progreso de cursos, no lecciones
+                isCourseLevelProgress: true
             },
-            include: [
-                {
-                    model: db.Course,
-                    attributes: ["title", "level"],
-                },
-            ],
+            include: [{
+                model: db.Course,
+                attributes: ['title', 'level']
+            }]
         });
 
         // Estadísticas generales
@@ -139,75 +137,61 @@ const getStudentStats = async (req, res) => {
 const updateLessonProgress = async (req, res) => {
     try {
         const { completed = false, timeSpent = 0 } = req.body;
+        const { courseId, lessonId } = req.params;
+        const userId = req.user.id;
 
-        // Verificar inscripción al curso
-        const courseProgress = await db.Progress.findOne({
+        // Primero, verificar o crear el progreso a nivel curso
+        const [courseProgress] = await db.Progress.findOrCreate({
             where: {
-                userId: req.user.id,
-                courseId: req.params.courseId,
-            },
-        });
-
-        if (!courseProgress) {
-            return res.status(404).json({
-                success: false,
-                message: "No estás inscrito en este curso",
-            });
-        }
-
-        // Actualizar o crear progreso de la lección
-        const [lessonProgress, created] = await db.Progress.findOrCreate({
-            where: {
-                userId: req.user.id,
-                courseId: req.params.courseId,
-                lessonId: req.params.lessonId,
+                userId,
+                courseId,
+                lessonId: null,
+                isCourseLevelProgress: true
             },
             defaults: {
-                completed,
-                timeSpent,
-                lastAccessedAt: new Date(),
-            },
+                progressPercentage: 0,
+                timeSpent: 0
+            }
         });
 
-        if (!created) {
-            await lessonProgress.update({
-                completed,
-                timeSpent: lessonProgress.timeSpent + timeSpent,
-                lastAccessedAt: new Date(),
-            });
-        }
-
-        // Actualizar progreso general del curso
-        const lessonsProgress = await db.Progress.findAll({
+        // Actualizar progreso de lección
+        const [lessonProgress] = await db.Progress.findOrCreate({
             where: {
-                userId: req.user.id,
-                courseId: req.params.courseId,
-                lessonId: {
-                    [Op.not]: null,
-                },
+                userId,
+                courseId,
+                lessonId,
+                isCourseLevelProgress: false
             },
+            defaults: {
+                completed: false,
+                timeSpent: 0
+            }
         });
 
-        const totalLessons = await db.Lesson.count({
-            where: { courseId: req.params.courseId },
+        await lessonProgress.update({
+            completed,
+            timeSpent: lessonProgress.timeSpent + timeSpent,
+            lastAccessedAt: new Date()
         });
 
-        const completedLessons = lessonsProgress.filter(
-            (lp) => lp.completed
-        ).length;
-        const progressPercentage = Math.round(
-            (completedLessons / totalLessons) * 100
-        );
-        const totalTimeSpent = lessonsProgress.reduce(
-            (sum, lp) => sum + (lp.timeSpent || 0),
-            0
-        );
+        // Calcular progreso general del curso
+        const totalLessons = await db.Lesson.count({ where: { courseId } });
+        const completedLessons = await db.Progress.count({
+            where: {
+                userId,
+                courseId,
+                lessonId: { [Op.not]: null },
+                completed: true,
+                isCourseLevelProgress: false
+            }
+        });
+
+        const progressPercentage = Math.round((completedLessons / totalLessons) * 100);
 
         await courseProgress.update({
             progressPercentage,
             completed: progressPercentage === 100,
-            timeSpent: totalTimeSpent,
-            lastAccessedAt: new Date(),
+            lastAccessedAt: new Date()
         });
 
         res.json({
@@ -215,26 +199,18 @@ const updateLessonProgress = async (req, res) => {
             data: {
                 lessonProgress: {
                     completed: lessonProgress.completed,
-                    timeSpent: lessonProgress.timeSpent,
-                    lastAccessed: lessonProgress.lastAccessedAt,
+                    timeSpent: lessonProgress.timeSpent
                 },
                 courseProgress: {
                     progressPercentage,
-                    completed: progressPercentage === 100,
-                    totalTimeSpent,
-                    lastAccessed: courseProgress.lastAccessedAt,
-                },
-            },
+                    completed: progressPercentage === 100
+                }
+            }
         });
     } catch (error) {
-        console.error("Error al actualizar progreso:", error);
         res.status(500).json({
             success: false,
-            message: "Error al actualizar el progreso",
-            error:
-                process.env.NODE_ENV === "development"
-                    ? error.message
-                    : "Error interno",
+            message: error.message
         });
     }
 };

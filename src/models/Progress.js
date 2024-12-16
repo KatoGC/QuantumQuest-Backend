@@ -1,4 +1,5 @@
-const { DataTypes } = require("sequelize");
+const { DataTypes, Op } = require("sequelize");
+
 module.exports = (sequelize) => {
     const Progress = sequelize.define("Progress", {
         userId: {
@@ -25,6 +26,10 @@ module.exports = (sequelize) => {
                 key: "id",
             },
         },
+        isCourseLevelProgress: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false
+        },
         completed: {
             type: DataTypes.BOOLEAN,
             defaultValue: false,
@@ -44,7 +49,27 @@ module.exports = (sequelize) => {
         lastAccessedAt: {
             type: DataTypes.DATE,
             defaultValue: DataTypes.NOW,
-        },
+        }
+    }, {
+        indexes: [
+            {
+                unique: true,
+                fields: ['userId', 'courseId', 'lessonId'],
+                where: {
+                    lessonId: {
+                        [Op.not]: null
+                    }
+                }
+            },
+            {
+                unique: true,
+                fields: ['userId', 'courseId'],
+                where: {
+                    lessonId: null,
+                    isCourseLevelProgress: true
+                }
+            }
+        ]
     });
 
     Progress.associate = (models) => {
