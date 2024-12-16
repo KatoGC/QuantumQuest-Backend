@@ -226,7 +226,8 @@ const deleteCourse = async (req, res) => {
 // Inscribirse a un curso
 const enrollCourse = async (req, res) => {
     try {
-        const course = await db.Course.findByPk(req.params.id);
+        const courseId = req.params.id;
+        const userId = req.user.id;
 
         if (!course) {
             return res.status(404).json({
@@ -235,26 +236,24 @@ const enrollCourse = async (req, res) => {
             });
         }
 
-        // Verificar si el usuario ya está inscrito
-        const enrollment = await db.Progress.findOne({
-            where: {
-                userId: req.user.id,
-                courseId: course.id,
-            },
+        // Verificar si ya está inscrito
+        const existingEnrollment = await db.Progress.findOne({
+            where: { userId, courseId, lessonId: null }
         });
 
-        if (enrollment) {
+        if (existingEnrollment) {
             return res.status(400).json({
                 success: false,
-                message: "Ya estás inscrito en este curso",
+                message: "Ya estás inscrito en este curso"
             });
         }
 
         // Crear inscripción
         await db.Progress.create({
-            userId: req.user.id,
-            courseId: course.id,
-            progressPercentage: 0,
+            userId,
+            courseId,
+            lessonId: null,
+            progressPercentage: 0
         });
 
         // Notificacion de nuevo estudiante inscrito
@@ -267,19 +266,11 @@ const enrollCourse = async (req, res) => {
             relatedType: "Course",
         });
 
-        res.status(201).json({
-            success: true,
-            message: "Inscripción exitosa al curso",
-        });
+        res.json({ success: true });
     } catch (error) {
-        console.error("Error al inscribirse al curso:", error);
         res.status(500).json({
             success: false,
-            message: "Error al inscribirse al curso",
-            error:
-                process.env.NODE_ENV === "development"
-                    ? error.message
-                    : "Error interno",
+            message: error.message
         });
     }
 };

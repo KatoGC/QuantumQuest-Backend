@@ -12,6 +12,7 @@ const notificationRoutes = require("./routes/notification.routes");
 const categoryRoutes = require("./routes/category.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const userRoutes = require("./routes/user.routes");
+const commentRoutes = require("./routes/comment.routes");
 
 const app = express();
 
@@ -60,6 +61,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api", commentRoutes);
 
 // Ruta de prueba
 app.get("/test", (req, res) => {
