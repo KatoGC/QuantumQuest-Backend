@@ -83,64 +83,73 @@ const createCourse = async (req, res) => {
 // Obtener un curso específico
 const getCourse = async (req, res) => {
     try {
-        console.log("Fetching course ID:", req.params.id);
         const course = await db.Course.findByPk(req.params.id, {
             include: [
                 {
                     model: db.User,
                     as: "creator",
-                    attributes: ["id", "name"],
+                    attributes: ["id", "name"]
                 },
                 {
                     model: db.Category,
-                    attributes: ["id", "name", "level", "grade"],
+                    attributes: ["id", "name", "level", "grade"]
                 },
                 {
                     model: db.Lesson,
-                    order: [["orderIndex", "ASC"]],
+                    order: [["orderIndex", "ASC"]]
                 },
-            ],
+                {
+                    model: db.Rating,
+                    where: { userId: req.user?.id },
+                    required: false,
+                    attributes: ['rating']
+                }
+            ]
         });
-        console.log("Course found:", course);
 
         if (!course) {
             return res.status(404).json({
                 success: false,
-                message: "Curso no encontrado",
+                message: "Curso no encontrado"
             });
         }
 
-        const enrolledStudents = await db.Progress.count({
-            where: { courseId: course.id },
-        });
+        const stats = await Promise.all([
+            db.Progress.count({
+                where: { courseId: course.id, isCourseLevelProgress: true }
+            }),
+            db.Progress.count({
+                where: {
+                    courseId: course.id,
+                    progressPercentage: 100,
+                    isCourseLevelProgress: true
+                }
+            })
+        ]);
 
-        const completedStudents = await db.Progress.count({
-            where: {
-                courseId: course.id,
-                progressPercentage: 100,
-            },
-        });
+        const response = {
+            ...course.toJSON(),
+            userRating: course.Ratings?.[0]?.rating || 0,
+            stats: {
+                enrolledStudents: stats[0],
+                completedStudents: stats[1]
+            }
+        };
 
-        res.json({
-            success: true,
-            data: {
-                ...course.toJSON(),
-                stats: {
-                    enrolledStudents,
-                    completedStudents,
-                    completionRate: enrolledStudents
-                        ? (completedStudents / enrolledStudents) * 100
-                        : 0,
-                },
-            },
-        });
+        if (req.user) {
+            const userProgress = await db.Progress.findOne({
+                where: {
+                    userId: req.user.id,
+                    courseId: course.id,
+                    isCourseLevelProgress: true
+                }
+            });
+            response.enrolled = !!userProgress;
+        }
+
+        res.json({ success: true, data: response });
     } catch (error) {
-        console.error("Error detallado:", error);
-        res.status(500).json({
-            success: false,
-            message: "Error al obtener el curso",
-            error: error.message,
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
